@@ -1,0 +1,25 @@
+diff --git a/opium/app.ml b/opium/app.ml
+--- a/opium/app.ml
++++ b/opium/app.ml
+@@ -68,6 +68,8 @@
+   |> List.filter_opt
+ 
+ let port port t = {t with port}
++let debug debug t = {t with debug}
++let verbose verbose t = {t with verbose}
+ 
+ let ssl ~cert ~key t =
+   {t with ssl= Some (`Crt_file_path cert, `Key_file_path key)}
+diff --git a/opium/app.mli b/opium/app.mli
+--- a/opium/app.mli
++++ b/opium/app.mli
+@@ -18,6 +18,9 @@
+     create a full app *)
+ 
+ val port : int -> builder
++
++val debug : bool -> builder
++val verbose : bool -> builder
+ 
+ val ssl : cert:string -> key:string -> builder
+ 

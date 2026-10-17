@@ -1,0 +1,149 @@
+diff --git a/opium/app.ml b/opium/app.ml
+--- a/opium/app.ml
++++ b/opium/app.ml
+@@ -246,7 +246,7 @@
+ 
+ type body =
+   [ `Html of string
+-  | `Json of Ezjsonm.t
++  | `Json of Yojson.Safe.t
+   | `Xml of string
+   | `String of string
+   | `Streaming of string Lwt_stream.t ]
+@@ -266,7 +266,7 @@
+     | `String s -> respond_with_string ?headers ~code s
+     | `Json s ->
+         respond_with_string ~code ~headers:(json_header headers)
+-          (Ezjsonm.to_string s)
++          (Yojson.Safe.to_string s)
+     | `Html s -> respond_with_string ~code ~headers:(html_header headers) s
+     | `Xml s -> respond_with_string ~code ~headers:(xml_header headers) s
+     | `Streaming s -> Response.of_stream ?headers ~code s
+@@ -294,7 +294,7 @@
+ 
+ module Request_helpers = struct
+   let json_exn req =
+-    req |> Request.body |> Cohttp_lwt.Body.to_string >>| Ezjsonm.from_string
++    req |> Request.body |> Cohttp_lwt.Body.to_string >>| Yojson.Safe.from_string
+ 
+   let string_exn req = req |> Request.body |> Cohttp_lwt.Body.to_string
+ 
+diff --git a/opium/app.mli b/opium/app.mli
+--- a/opium/app.mli
++++ b/opium/app.mli
+@@ -92,13 +92,13 @@
+ 
+ type body =
+   [ `Html of string
+-  | `Json of Ezjsonm.t
++  | `Json of Yojson.Safe.t
+   | `Xml of string
+   | `String of string
+   | `Streaming of string Lwt_stream.t ]
+ (** Convenience functions for a running opium app *)
+ 
+-val json_of_body_exn : Request.t -> Ezjsonm.t Lwt.t
++val json_of_body_exn : Request.t -> Yojson.Safe.t Lwt.t
+ 
+ val string_of_body_exn : Request.t -> string Lwt.t
+ 
+diff --git a/opium/dune b/opium/dune
+--- a/opium/dune
++++ b/opium/dune
+@@ -4,4 +4,4 @@
+   (:standard -safe-string))
+  (preprocess
+   (pps ppx_sexp_conv ppx_fields_conv))
+- (libraries opium_kernel cmdliner cohttp-lwt-unix magic-mime logs ezjsonm))
++ (libraries opium_kernel cmdliner cohttp-lwt-unix magic-mime logs yojson))
+diff --git a/dune-project b/dune-project
+--- a/dune-project
++++ b/dune-project
+@@ -51,7 +51,7 @@
+    (>= 1.11))
+   opium_kernel
+   cohttp-lwt-unix
+-  ezjsonm
++  yojson
+   lwt
+   logs
+   cmdliner
+diff --git a/opium.opam b/opium.opam
+--- a/opium.opam
++++ b/opium.opam
+@@ -20,7 +20,7 @@
+   "dune" {>= "1.11"}
+   "opium_kernel"
+   "cohttp-lwt-unix"
+-  "ezjsonm"
++  "yojson"
+   "lwt"
+   "logs"
+   "cmdliner"
+diff --git a/examples/dune b/examples/dune
+--- a/examples/dune
++++ b/examples/dune
+@@ -1,5 +1,5 @@
+ (executables
+- (libraries re ezjsonm opium logs.fmt)
++ (libraries re yojson opium logs.fmt)
+  (preprocess
+   (pps ppx_sexp_conv))
+  (flags
+diff --git a/examples/hello_world.ml b/examples/hello_world.ml
+--- a/examples/hello_world.ml
++++ b/examples/hello_world.ml
+@@ -3,8 +3,7 @@
+ type person = {name: string; age: int}
+ 
+ let json_of_person {name; age} =
+-  let open Ezjsonm in
+-  dict [("name", string name); ("age", int age)]
++  `Assoc [("name", `String name); ("age", `Int age)]
+ 
+ let print_param =
+   put "/hello/:name" (fun req ->
+@@ -30,7 +29,7 @@
+ 
+ let default =
+   not_found (fun _req ->
+-      `Json Ezjsonm.(dict [("message", string "Route not found")]) |> respond')
++      `Json (`Assoc [("message", `String "Route not found")]) |> respond')
+ 
+ let print_person =
+   get "/person/:name/:age" (fun req ->
+diff --git a/examples/sample.ml b/examples/sample.ml
+--- a/examples/sample.ml
++++ b/examples/sample.ml
+@@ -12,8 +12,7 @@
+       let x = "x" |> param req |> int_of_string in
+       let y = "y" |> param req |> int_of_string in
+       let sum = float_of_int (x + y) in
+-      let open Ezjsonm in
+-      `Json (`A [int x; int y; float sum]) |> respond')
++      `Json (`List [`Int x; `Int y; `Float sum]) |> respond')
+ 
+ let e4 =
+   put "/hello/:x/from/:y" (fun req ->
+diff --git a/README.md b/README.md
+--- a/README.md
++++ b/README.md
+@@ -75,8 +75,7 @@
+ type person = {name: string; age: int}
+ 
+ let json_of_person {name; age} =
+-  let open Ezjsonm in
+-  dict [("name", string name); ("age", int age)]
++  `Assoc [("name", `String name); ("age", `Int age)]
+ 
+ let print_param =
+   put "/hello/:name" (fun req ->
+@@ -103,7 +102,7 @@
+ 
+ let default =
+   not_found (fun _req ->
+-      `Json Ezjsonm.(dict [("message", string "Route not found")]) |> respond')
++      `Json (`Assoc [("message", `String "Route not found")]) |> respond')
+ 
+ let print_person =
+   get "/person/:name/:age" (fun req ->
